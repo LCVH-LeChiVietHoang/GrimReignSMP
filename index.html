@@ -146,6 +146,49 @@
             margin-top: 1px;
         }
 
+        /* --- MÃ CODE REDEEM --- */
+        .redeem-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .redeem-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #f0f6fc;
+            font-size: 13px;
+            outline: none;
+        }
+        .redeem-input#gift-code {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .redeem-input:focus { border-color: #58a6ff; }
+        .btn-redeem {
+            padding: 10px 16px;
+            background: #1f6beb;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-redeem:hover { background: #388bfd; }
+        .btn-redeem:disabled { background: #30363d; cursor: not-allowed; }
+        .code-message {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .code-message.success { color: #3fb950; }
+        .code-message.error { color: #f85149; }
+
+        /* --- FORM SUPPORT --- */
         .support-form { display: flex; flex-direction: column; gap: 10px; }
         .form-group input, .form-group textarea {
             width: 100%;
@@ -216,7 +259,22 @@
 
         <!-- CỘT PHẢI -->
         <div class="right-panel">
-            <!-- MỤC 1: ABOUT (THÔNG TIN SERVER) -->
+            <!-- MỤC 1: REDEEM CODE (NHẬP MÃ CODE) -->
+            <div class="info-card">
+                <div class="card-title">
+                    <i class="fa-solid fa-ticket"></i> Nhập Mã Quà Tặng (Redeem Code)
+                </div>
+                <div class="redeem-form">
+                    <input type="text" id="username" class="redeem-input" placeholder="Tên Ingame (Username)..." autocomplete="off">
+                    <input type="text" id="gift-code" class="redeem-input" placeholder="Nhập mã code..." autocomplete="off">
+                    <button class="btn-redeem" id="btn-redeem" onclick="checkCode()">
+                        <i class="fa-solid fa-gift"></i> Nhận Quà
+                    </button>
+                </div>
+                <div id="code-message" class="code-message"></div>
+            </div>
+
+            <!-- MỤC 2: ABOUT (THÔNG TIN SERVER) -->
             <div class="info-card">
                 <div class="card-title">
                     <i class="fa-solid fa-circle-info"></i> Thông Tin Server (About)
@@ -228,7 +286,7 @@
                 </ul>
             </div>
 
-            <!-- MỤC 2: HOW TO JOIN (HƯỚNG DẪN VÀO GAME) -->
+            <!-- MỤC 3: HOW TO JOIN (HƯỚNG DẪN VÀO GAME) -->
             <div class="info-card">
                 <div class="card-title">
                     <i class="fa-solid fa-laptop"></i> Hướng Dẫn Vào Game (How To Join)
@@ -253,7 +311,7 @@
                 </ul>
             </div>
 
-            <!-- MỤC 3: SUPPORT (GỬI MAIL HỖ TRỢ) -->
+            <!-- MỤC 4: SUPPORT (GỬI MAIL HỖ TRỢ) -->
             <div class="info-card">
                 <div class="card-title">
                     <i class="fa-solid fa-envelope"></i> Gửi Hỗ Trợ (Support)
@@ -287,6 +345,77 @@
             const toast = document.getElementById("toast");
             toast.className = "show";
             setTimeout(() => { toast.className = ""; }, 1500);
+        }
+
+        const validCodes = {
+            'GRIMREIGN2026': {
+                desc: 'Bạn đã nhận được 1 chiếc áo giáp kim cương.',
+                cmd: (user) => `/give ${user} diamond_chestplate 1`
+            },
+            'WELCOME': {
+                desc: 'Bạn được 1 lần teleport tới bất kì chỗ nào ( liên hệ với Admin ).',
+                cmd: (user) => `/tp ${user} <Vị_Trí_Yêu_Cầu>`
+            },
+            'NEWPLAYER': {
+                desc: 'Bạn nhận 32 viên kim cương.',
+                cmd: (user) => `/give ${user} diamond 32`
+            }
+        };
+
+        async function checkCode() {
+            const user = document.getElementById('username').value.trim();
+            const input = document.getElementById('gift-code');
+            const msg = document.getElementById('code-message');
+            const btn = document.getElementById('btn-redeem');
+            const code = input.value.trim().toUpperCase();
+
+            if (!user) {
+                msg.className = 'code-message error';
+                msg.innerText = 'Vui lòng nhập Tên Ingame (Username)!';
+                return;
+            }
+
+            if (!code) {
+                msg.className = 'code-message error';
+                msg.innerText = 'Vui lòng nhập mã code!';
+                return;
+            }
+
+            if (validCodes[code]) {
+                const reward = validCodes[code];
+                btn.disabled = true;
+                msg.className = 'code-message';
+                msg.innerText = 'Đang gửi thông báo cho Admin...';
+
+                // Tự động gửi Email về cho Admin thông qua Web3Forms
+                try {
+                    const response = await fetch('https://api.web3forms.com/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            access_key: '0005bc2b-8225-449e-8c81-82d282b5490f',
+                            subject: `[GIFTCODE] Player ${user} vừa đổi mã ${code}`,
+                            from_name: 'GrimReignSMP Web',
+                            message: `THÔNG BÁO ĐỔI CODE:\n- Tên Ingame: ${user}\n- Mã Code: ${code}\n- Quà tặng: ${reward.desc}\n- Câu lệnh trao quà: ${reward.cmd(user)}`
+                        })
+                    });
+
+                    if (response.ok) {
+                        msg.className = 'code-message success';
+                        msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${reward.desc}<br><i class="fa-solid fa-paper-plane"></i> Đã gửi yêu cầu nhận quà đến Admin thành công!`;
+                    } else {
+                        throw new Error('Gửi mail thất bại');
+                    }
+                } catch (err) {
+                    msg.className = 'code-message success';
+                    msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${reward.desc}<br>(Không thể gửi tự động cho Admin, vui lòng chụp màn hình gửi Admin nhé)`;
+                } finally {
+                    btn.disabled = false;
+                }
+            } else {
+                msg.className = 'code-message error';
+                msg.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Mã code không hợp lệ hoặc đã hết hạn!';
+            }
         }
     </script>
 </body>
